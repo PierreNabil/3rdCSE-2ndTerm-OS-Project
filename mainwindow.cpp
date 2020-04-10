@@ -112,6 +112,8 @@ void MainWindow::on_DisplayBtn_clicked()
     sort(PL.begin(),PL.end(),CompArrivalTime);
     QLineSeries *series = new QLineSeries();
 
+    float totalWaitingTime =0;
+
 
     //Calculate the Graph According to the Schedualing Algorithm Chosen
 
@@ -144,12 +146,15 @@ void MainWindow::on_DisplayBtn_clicked()
                 series->append(t+DT,Queue.front().getPID()+1);
             }
 
+            if(Queue.size() > 1)
+                totalWaitingTime += DT * (Queue.size()-1);
+
             //if remaining time == 0 remove process
             if(!Queue.empty() && Queue.front().getRequiredTime() == 0)
                 Queue.pop();
         }
     }
-    else if(ui->SchedualSelector->currentIndex() == 2)   //Shortest Job First (Preemptive)
+    else if(ui->SchedualSelector->currentIndex() == 2)   //Shortest Job First (Preemptive) - David John
     {
         vector <Process> Queue;
 
@@ -180,12 +185,15 @@ void MainWindow::on_DisplayBtn_clicked()
                 series->append(t+DT,Queue.front().getPID()+1);
             }
 
+            if(Queue.size() > 1)
+                totalWaitingTime += DT * (Queue.size()-1);
+
             //if remaining time == 0 remove process
             if(!Queue.empty() && Queue.front().getRequiredTime() == 0)
                 PopFirst(Queue);
         }
     }
-    else if(ui->SchedualSelector->currentIndex() == 3)   //Shortest Job First (nonPreemptive)
+    else if(ui->SchedualSelector->currentIndex() == 3)   //Shortest Job First (nonPreemptive) - David John
     {
         deque <Process> Queue;
 
@@ -200,6 +208,8 @@ void MainWindow::on_DisplayBtn_clicked()
                 else
                 {
                     tempV.push_back(PopFirst(PL));
+                    if(tempV.front().getArrivalTime() < t)
+                        totalWaitingTime += (t - tempV.front().getArrivalTime());
                 }
             }
             sort(tempV.begin(),tempV.end(),CompRequiredTime());
@@ -222,11 +232,15 @@ void MainWindow::on_DisplayBtn_clicked()
                     t+=DT;
                 }
                 t-=DT;
+
+                if(Queue.size() > 1)
+                    totalWaitingTime += Queue.front().requiredTime * (Queue.size()-1);
+
                 Queue.pop_front();
             }
         }
     }
-    else if(ui->SchedualSelector->currentIndex() == 4)   //Priority (Preemptive)
+    else if(ui->SchedualSelector->currentIndex() == 4)   //Priority (Preemptive) - Pierre Nabil
     {
         vector <Process> Queue;
 
@@ -257,12 +271,15 @@ void MainWindow::on_DisplayBtn_clicked()
                 series->append(t+DT,Queue.front().getPID()+1);
             }
 
+            if(Queue.size() > 1)
+                totalWaitingTime += DT * (Queue.size()-1);
+
             //if remaining time == 0 remove process
             if(!Queue.empty() && Queue.front().getRequiredTime() == 0)
                 PopFirst(Queue);
         }
     }
-    else if(ui->SchedualSelector->currentIndex() == 5)   //Priority (nonPreemptive)
+    else if(ui->SchedualSelector->currentIndex() == 5)   //Priority (nonPreemptive) - Pierre Nabil
     {
         deque <Process> Queue;
 
@@ -277,6 +294,8 @@ void MainWindow::on_DisplayBtn_clicked()
                 else
                 {
                     tempV.push_back(PopFirst(PL));
+                    if(tempV.front().getArrivalTime() < t)
+                        totalWaitingTime += (t - tempV.front().getArrivalTime());
                 }
             }
             sort(tempV.begin(),tempV.end(),CompPriority());
@@ -299,6 +318,10 @@ void MainWindow::on_DisplayBtn_clicked()
                     t+=DT;
                 }
                 t-=DT;
+
+                if(Queue.size() > 1)
+                    totalWaitingTime += Queue.front().requiredTime * (Queue.size()-1);
+
                 Queue.pop_front();
             }
         }
@@ -315,7 +338,11 @@ void MainWindow::on_DisplayBtn_clicked()
                 if(PL[0].getArrivalTime() > t)
                     break;
                 else
+                {
                     Queue.push(PopFirst(PL));
+                    if(Queue.front().getArrivalTime() < t)
+                        totalWaitingTime += (t - Queue.front().getArrivalTime());
+                }
             }
 
             //decrease the remaining time of the first process by 1
@@ -331,8 +358,14 @@ void MainWindow::on_DisplayBtn_clicked()
                     series->append(t, Queue.front().getPID()+1);
                     series->append(t+DT,Queue.front().getPID()+1);
                     t+=DT;
+
+                    if(Queue.size() > 1)
+                        totalWaitingTime += DT * (Queue.size()-1);
                 }
                 t-=DT;
+                if(Queue.size() > 1)
+                    totalWaitingTime -= DT * (Queue.size()-1);
+
                 Queue.front().decReqTime(ui->TimeQuantumBox->value());
 
                 //if remaining time == 0 remove process
@@ -348,13 +381,14 @@ void MainWindow::on_DisplayBtn_clicked()
         }
     }
 
+    float avgWaitingTime = totalWaitingTime/PList.size();
 
     //Plot the Chart
 
     QChart *chart = new QChart();
     chart->legend()->hide();
     chart->addSeries(series);
-    chart->setTitle("Gantt Chart");
+    chart->setTitle("Gantt Chart using: " + ui->SchedualSelector->currentText() +"  -  Average Waiting Time = " + QString::number(avgWaitingTime));
 
     QStringList categories;
     categories << "No Process";
@@ -369,21 +403,21 @@ void MainWindow::on_DisplayBtn_clicked()
     QValueAxis *axisX = new QValueAxis();
     axisX->setTickType(QValueAxis::TicksDynamic);
 
-    if(TotalTime(PList) <= 1)
+    if(TotalTime(PList) <= 1.2)
         axisX->setTickInterval(0.1);
-    else if(TotalTime(PList) <= 5)
+    else if(TotalTime(PList) <= 51)
         axisX->setTickInterval(0.5);
-    else if(TotalTime(PList) <= 10)
+    else if(TotalTime(PList) <= 12)
         axisX->setTickInterval(1);
-    else if(TotalTime(PList) <= 50)
+    else if(TotalTime(PList) <= 51)
         axisX->setTickInterval(5);
-    else if(TotalTime(PList) <= 100)
+    else if(TotalTime(PList) <= 120)
         axisX->setTickInterval(10);
-    else if(TotalTime(PList) <= 500)
+    else if(TotalTime(PList) <= 510)
         axisX->setTickInterval(50);
-    else if(TotalTime(PList) <= 1000)
+    else if(TotalTime(PList) <= 1200)
         axisX->setTickInterval(100);
-    else if(TotalTime(PList) <= 5000)
+    else if(TotalTime(PList) <= 5100)
         axisX->setTickInterval(500);
     else
         axisX->setTickInterval(1000);
@@ -408,5 +442,4 @@ void MainWindow::on_DisplayBtn_clicked()
     delete axisX;
     delete axisY;
     delete chartView;
-
 }
